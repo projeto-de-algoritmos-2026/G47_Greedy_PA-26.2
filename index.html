@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda de Visitas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:       #1a6b6b;
+      --primary-light: #e6f3f3;
+      --primary-dark:  #145555;
+      --accent:        #e67e22;
+      --danger:        #e74c3c;
+      --warning:       #f39c12;
+      --success:       #27ae60;
+      --gray-100: #f8f9fa;
+      --gray-200: #e9ecef;
+      --gray-300: #dee2e6;
+      --gray-400: #ced4da;
+      --gray-600: #6c757d;
+      --gray-800: #343a40;
+      --text: #2c3e50;
+      --radius: 8px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.10);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+
+    .header-sub {
+      font-size: 0.82rem;
+      opacity: 0.78;
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 8px 15px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: background 0.18s, opacity 0.18s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary   { background: var(--primary);  color: #fff; }
+    .btn-primary:hover  { background: var(--primary-dark); }
+
+    .btn-accent    { background: var(--accent);   color: #fff; }
+    .btn-accent:hover   { background: #ca6f1e; }
+
+    .btn-danger    { background: var(--danger);   color: #fff; }
+    .btn-danger:hover   { background: #c0392b; }
+
+    .btn-success   { background: var(--success);  color: #fff; }
+    .btn-success:hover  { background: #1e8449; }
+
+    .btn-outline   { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-outline:hover  { background: var(--primary-light); }
+
+    .btn-ghost     { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-300); }
+    .btn-ghost:hover    { background: var(--gray-200); }
+
+    .btn-white-outline { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,0.7); }
+    .btn-white-outline:hover { background: rgba(255,255,255,0.12); }
+
+    .btn-whatsapp  { background: #25d366; color: #fff; }
+    .btn-whatsapp:hover { background: #1da851; }
+
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+    .btn-icon { padding: 6px; width: 32px; height: 32px; }
+
+    /* ── Main layout ─────────────────────────────────────── */
+    main {
+      padding: 14px 12px;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    /* ── Cards ───────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    /* ── Summary banner ──────────────────────────────────── */
+    .summary-banner {
+      border-left: 4px solid var(--primary);
+    }
+
+    .summary-text {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .summary-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+
+    .badge-info    { background: var(--primary-light); color: var(--primary); }
+    .badge-warning { background: #fff3cd; color: #856404; }
+    .badge-danger  { background: #fde8e8; color: var(--danger); }
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-example { background: #e8f4f8; color: #0277bd; border: 1px dashed #0277bd; }
+
+    /* ── Settings bar ────────────────────────────────────── */
+    .settings-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .setting-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.88rem;
+      background: #fff;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+    }
+
+    .setting-item label { font-weight: 500; color: var(--gray-800); }
+
+    .setting-item input[type="number"] {
+      width: 64px;
+      padding: 4px 6px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: 5px;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .setting-item input[type="number"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--gray-200);
+      margin: -14px -14px 14px;
+      padding: 0 4px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab {
+      padding: 10px 16px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      border-bottom: 2.5px solid transparent;
+      margin-bottom: -2px;
+      color: var(--gray-600);
+      background: none;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    /* ── Day grid ────────────────────────────────────────── */
+    .grid-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+
+    .day-grid { min-width: 580px; }
+
+    .grid-time-header {
+      display: flex;
+      padding-left: 108px;
+      margin-bottom: 2px;
+    }
+
+    .grid-time-tick {
+      flex: 1;
+      font-size: 0.68rem;
+      color: var(--gray-600);
+      text-align: left;
+      padding-left: 2px;
+      border-left: 1px solid var(--gray-200);
+    }
+
+    .grid-row {
+      display: flex;
+      min-height: 54px;
+      margin-bottom: 3px;
+    }
+
+    .grid-agent-label {
+      width: 108px;
+      flex-shrink: 0;
+      padding: 6px 8px 6px 0;
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      border-right: 2px solid var(--gray-200);
+      color: var(--gray-800);
+      overflow: hidden;
+    }
+
+    .grid-agent-label span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grid-track {
+      flex: 1;
+      position: relative;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0,
+        transparent calc(100% / var(--cols, 12) - 1px),
+        var(--gray-200) calc(100% / var(--cols, 12) - 1px),
+        var(--gray-200) calc(100% / var(--cols, 12))
+      );
+    }
+
+    /* visit blocks — 6 colour slots */
+    .vblock {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      border-radius: 5px;
+      padding: 3px 7px;
+      font-size: 0.72rem;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1.5px solid;
+      transition: opacity 0.15s, box-shadow 0.15s;
+    }
+
+    .vblock:hover { opacity: 0.82; box-shadow: 0 2px 6px rgba(0,0,0,0.18); }
+    .vblock.example { border-style: dashed; }
+
+    .vblock-client   { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vblock-property { opacity: 0.82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vblock-time     { font-size: 0.65rem; opacity: 0.7; }
+
+    .vc0 { background: #3498db1a; border-color: #3498db; color: #1a5276; }
+    .vc1 { background: #2ecc711a; border-color: #2ecc71; color: #1a5632; }
+    .vc2 { background: #9b59b61a; border-color: #9b59b6; color: #4a235a; }
+    .vc3 { background: #e67e221a; border-color: #e67e22; color: #784212; }
+    .vc4 { background: #e74c3c1a; border-color: #e74c3c; color: #641e16; }
+    .vc5 { background: #1abc9c1a; border-color: #1abc9c; color: #0e6655; }
+
+    /* ── Agent agenda list ───────────────────────────────── */
+    .agenda-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .agenda-agent-card {
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .agenda-agent-header {
+      background: var(--gray-100);
+      padding: 9px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .agenda-agent-name { font-weight: 600; font-size: 0.92rem; }
+
+    .agenda-item {
+      padding: 9px 13px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .agenda-item.example { background: #f0f7ff; }
+
+    .agenda-time {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .agenda-info { flex: 1; min-width: 0; }
+    .agenda-info .a-client   { font-weight: 500; font-size: 0.88rem; }
+    .agenda-info .a-property { font-size: 0.8rem; color: var(--gray-600); }
+
+    .agenda-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+    /* ── Unfit visits ────────────────────────────────────── */
+    .unfit-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .unfit-item {
+      background: #fff5f5;
+      border: 1px solid #fcc;
+      border-radius: var(--radius);
+      padding: 11px 13px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .unfit-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+    .unfit-info { flex: 1; }
+    .unfit-label      { font-weight: 500; color: var(--danger); font-size: 0.88rem; }
+    .unfit-suggestion { font-size: 0.8rem; color: var(--gray-600); margin-top: 2px; }
+
+    /* ── Conflict warnings ───────────────────────────────── */
+    .conflict-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .conflict-item {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: var(--radius);
+      padding: 10px 13px;
+      font-size: 0.86rem;
+    }
+
+    .conflict-title { font-weight: 600; color: #e65100; margin-bottom: 3px; }
+
+    /* ── All-visits table ────────────────────────────────── */
+    .visit-row {
+      display: flex;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--gray-200);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .visit-row:last-child { border-bottom: none; }
+
+    .visit-row .vr-time {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--primary);
+      width: 90px;
+      flex-shrink: 0;
+    }
+
+    .visit-row .vr-info { flex: 1; min-width: 120px; }
+    .visit-row .vr-client   { font-size: 0.88rem; font-weight: 500; }
+    .visit-row .vr-property { font-size: 0.8rem; color: var(--gray-600); }
+
+    .visit-row .vr-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+    /* ── Agent management list ───────────────────────────── */
+    .agent-row {
+      display: flex;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--gray-200);
+      gap: 10px;
+    }
+
+    .agent-row:last-child { border-bottom: none; }
+
+    .agent-row .ar-name  { flex: 1; font-weight: 500; font-size: 0.9rem; }
+    .agent-row .ar-hours { font-size: 0.8rem; color: var(--gray-600); }
+    .agent-row .ar-actions { display: flex; gap: 5px; }
+
+    /* ── Modal / overlay ─────────────────────────────────── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.48);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .overlay.active { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 16px 16px 0 0;
+      padding: 22px 16px 28px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    @media (min-width: 560px) {
+      .overlay { align-items: center; }
+      .modal { border-radius: 14px; }
+    }
+
+    .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 18px; }
+
+    /* ── Forms ───────────────────────────────────────────── */
+    .form-group { margin-bottom: 13px; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: var(--gray-800);
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      background: #fff;
+      transition: border-color 0.18s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+    .form-error {
+      color: var(--danger);
+      font-size: 0.78rem;
+      margin-top: 3px;
+      display: none;
+    }
+
+    .form-error.show { display: block; }
+
+    .modal-actions {
+      display: flex;
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    .modal-actions .btn { flex: 1; }
+
+    /* ── Inline conflict note inside modal ───────────────── */
+    .inline-warning {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-size: 0.83rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .inline-warning.show { display: block; }
+    .inline-warning strong { color: #e65100; }
+
+    /* ── Toast ───────────────────────────────────────────── */
+    .toast-wrap {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--gray-800);
+      color: #fff;
+      padding: 9px 20px;
+      border-radius: 22px;
+      font-size: 0.86rem;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.25s ease;
+      pointer-events: auto;
+    }
+
+    .toast.success { background: var(--success); }
+    .toast.warning { background: var(--warning); color: var(--gray-800); }
+    .toast.error   { background: var(--danger); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Empty state ─────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 28px 16px;
+      color: var(--gray-600);
+    }
+
+    .empty .empty-icon { font-size: 2.2rem; margin-bottom: 7px; }
+    .empty p { font-size: 0.86rem; }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 420px) {
+      .btn  { font-size: 0.8rem; padding: 7px 11px; }
+      .card { padding: 11px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ════════════════════════ -->
+<header>
+  <h1>&#x1F4C5; Agenda de Visitas</h1>
+  <div class="header-sub" id="date-display"></div>
+  <div class="header-actions">
+    <button class="btn btn-white-outline" onclick="openModal('modal-visit')">+ Visita</button>
+    <button class="btn btn-white-outline" onclick="openModal('modal-agent')">+ Corretor</button>
+    <button class="btn btn-white-outline" onclick="confirmClearAll()">Limpar tudo</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════ MAIN ══════════════════════════ -->
+<main>
+
+  <!-- Tempo de deslocamento -->
+  <div class="settings-bar">
+    <div class="setting-item">
+      <label for="travel-time">&#x1F697; Tempo de deslocamento:</label>
+      <input type="number" id="travel-time" min="0" max="180" value="20">
+      <span>min</span>
+    </div>
+  </div>
+
+  <!-- Resumo do dia -->
+  <div class="card summary-banner" id="summary-banner">
+    <div class="summary-text" id="summary-text">Adicione visitas e corretores para ver o resumo do dia.</div>
+    <div class="summary-badges" id="summary-badges"></div>
+  </div>
+
+  <!-- Avisos de conflito de imóvel -->
+  <div class="card" id="conflicts-card" style="display:none; border-left:4px solid var(--warning);">
+    <div class="card-header">
+      <span class="card-title">&#x26A0;&#xFE0F; Atenção: mesmo imóvel em horários sobrepostos</span>
+    </div>
+    <div class="conflict-list" id="conflict-list"></div>
+  </div>
+
+  <!-- Tabs principais -->
+  <div class="card" style="padding-bottom:14px;">
+    <div class="tabs">
+      <button class="tab active" data-tab="grid"      onclick="switchTab(this,'grid')">Grade do Dia</button>
+      <button class="tab"        data-tab="agendas"   onclick="switchTab(this,'agendas')">Agendas</button>
+      <button class="tab"        data-tab="corretores" onclick="switchTab(this,'corretores')">Corretores</button>
+      <button class="tab"        data-tab="visitas"   onclick="switchTab(this,'visitas')">Todas as Visitas</button>
+    </div>
+
+    <!-- Grade do dia -->
+    <div id="tab-grid">
+      <div class="grid-scroll">
+        <div class="day-grid" id="day-grid">
+          <div class="empty"><div class="empty-icon">&#x1F4CA;</div><p>Nenhuma visita cadastrada ainda.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agendas por corretor -->
+    <div id="tab-agendas" style="display:none;">
+      <div class="agenda-list" id="agenda-list">
+        <div class="empty"><div class="empty-icon">&#x1F464;</div><p>Nenhum corretor disponível.</p></div>
+      </div>
+    </div>
+
+    <!-- Gerenciar corretores -->
+    <div id="tab-corretores" style="display:none;">
+      <div id="agent-list">
+        <div class="empty"><div class="empty-icon">&#x1F464;</div><p>Nenhum corretor cadastrado.</p></div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-agent')">+ Novo corretor</button>
+      </div>
+    </div>
+
+    <!-- Todas as visitas -->
+    <div id="tab-visitas" style="display:none;">
+      <div id="all-visits-list">
+        <div class="empty"><div class="empty-icon">&#x1F3E0;</div><p>Nenhuma visita cadastrada.</p></div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-visit')">+ Nova visita</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visitas que não couberam -->
+  <div class="card" id="unfit-card" style="display:none; border-left:4px solid var(--danger);">
+    <div class="card-header">
+      <span class="card-title">&#x274C; Visitas que não couberam hoje</span>
+    </div>
+    <div class="unfit-list" id="unfit-list"></div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════ MODAL: VISITA ═════════════════════ -->
+<div class="overlay" id="modal-visit">
+  <div class="modal">
+    <div class="modal-title" id="modal-visit-title">Nova Visita</div>
+
+    <div class="form-group">
+      <label for="v-client">Cliente</label>
+      <input type="text" id="v-client" placeholder="Nome do cliente">
+      <div class="form-error" id="err-v-client">Informe o nome do cliente.</div>
+    </div>
+
+    <div class="form-group">
+      <label for="v-property">Imóvel (endereço ou código)</label>
+      <input type="text" id="v-property" placeholder="Ex.: Rua das Flores, 42 ou AP-301">
+      <div class="form-error" id="err-v-property">Informe o imóvel.</div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="v-start">Início</label>
+        <input type="time" id="v-start">
+        <div class="form-error" id="err-v-start">Informe o horário.</div>
+      </div>
+      <div class="form-group">
+        <label for="v-end">Fim</label>
+        <input type="time" id="v-end">
+        <div class="form-error" id="err-v-end">Informe o horário.</div>
+      </div>
+    </div>
+    <div class="form-error" id="err-v-time">O horário de fim deve ser depois do início.</div>
+
+    <div class="form-group">
+      <label for="v-agent">Corretor (opcional)</label>
+      <select id="v-agent">
+        <option value="">Atribuir automaticamente</option>
+      </select>
+    </div>
+
+    <input type="hidden" id="v-edit-id">
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-visit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveVisit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MODAL: CORRETOR ══════════════════ -->
+<div class="overlay" id="modal-agent">
+  <div class="modal">
+    <div class="modal-title" id="modal-agent-title">Novo Corretor</div>
+
+    <div class="form-group">
+      <label for="a-name">Nome</label>
+      <input type="text" id="a-name" placeholder="Nome do corretor">
+      <div class="form-error" id="err-a-name">Informe o nome do corretor.</div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="a-start">Início do turno (opcional)</label>
+        <input type="time" id="a-start">
+      </div>
+      <div class="form-group">
+        <label for="a-end">Fim do turno (opcional)</label>
+        <input type="time" id="a-end">
+      </div>
+    </div>
+
+    <input type="hidden" id="a-edit-id">
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-agent')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAgent()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MODAL: MOVER VISITA ════════════════ -->
+<div class="overlay" id="modal-move">
+  <div class="modal">
+    <div class="modal-title">Mover Visita</div>
+    <p id="move-desc" style="font-size:0.88rem;color:var(--gray-600);margin-bottom:14px;"></p>
+
+    <div class="form-group">
+      <label for="move-agent">Atribuir ao corretor</label>
+      <select id="move-agent"></select>
+    </div>
+
+    <div class="inline-warning" id="move-conflict-box">
+      <strong>&#x26A0;&#xFE0F; Atenção:</strong>
+      <span id="move-conflict-text"></span>
+    </div>
+
+    <input type="hidden" id="move-visit-id">
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-move')">Cancelar</button>
+      <button class="btn btn-primary" id="move-confirm-btn" onclick="confirmMove()">Mover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ TOASTS ══════════════════════════ -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- ══════════════════════ SCRIPT ══════════════════════════ -->
+<script>
+  // ── date header ──────────────────────────────────────────
+  document.getElementById('date-display').textContent =
+    new Date().toLocaleDateString('pt-BR', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+  // ── tab switching ─────────────────────────────────────────
+  function switchTab(btn, name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    ['grid','agendas','corretores','visitas'].forEach(t => {
+      document.getElementById('tab-' + t).style.display = (t === name) ? '' : 'none';
+    });
+  }
+
+  // ── modal helpers ─────────────────────────────────────────
+  function openModal(id)  { document.getElementById(id).classList.add('active'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+  document.querySelectorAll('.overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+  });
+
+  // ── toast ────────────────────────────────────────────────
+  function toast(msg, type = '') {
+    const wrap = document.getElementById('toast-wrap');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+
+  // ── stubs (logic added in next commits) ──────────────────
+  function saveVisit()    { closeModal('modal-visit'); }
+  function saveAgent()    { closeModal('modal-agent'); }
+  function confirmMove()  { closeModal('modal-move'); }
+  function confirmClearAll() { toast('Função disponível em breve.', 'warning'); }
+</script>
+
+</body>
+</html>
