@@ -591,8 +591,8 @@
   <h1>&#x1F4C5; Agenda de Visitas</h1>
   <div class="header-sub" id="date-display"></div>
   <div class="header-actions">
-    <button class="btn btn-white-outline" onclick="openModal('modal-visit')">+ Visita</button>
-    <button class="btn btn-white-outline" onclick="openModal('modal-agent')">+ Corretor</button>
+    <button class="btn btn-white-outline" onclick="openNewVisit()">+ Visita</button>
+    <button class="btn btn-white-outline" onclick="openNewAgent()">+ Corretor</button>
     <button class="btn btn-white-outline" onclick="confirmClearAll()">Limpar tudo</button>
   </div>
 </header>
@@ -654,7 +654,7 @@
         <div class="empty"><div class="empty-icon">&#x1F464;</div><p>Nenhum corretor cadastrado.</p></div>
       </div>
       <div style="margin-top:12px;">
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-agent')">+ Novo corretor</button>
+        <button class="btn btn-primary btn-sm" onclick="openNewAgent()">+ Novo corretor</button>
       </div>
     </div>
 
@@ -664,7 +664,7 @@
         <div class="empty"><div class="empty-icon">&#x1F3E0;</div><p>Nenhuma visita cadastrada.</p></div>
       </div>
       <div style="margin-top:12px;">
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-visit')">+ Nova visita</button>
+        <button class="btn btn-primary btn-sm" onclick="openNewVisit()">+ Nova visita</button>
       </div>
     </div>
   </div>
@@ -1010,12 +1010,142 @@
     setTimeout(() => el.remove(), 3200);
   }
 
-  // ── stubs (formulários e algoritmos vêm nos próximos commits) ──
-  function saveVisit()   { closeModal('modal-visit'); }
-  function saveAgent()   { closeModal('modal-agent'); }
+  // ═══════════════════════════════════════════════════════════
+  // FORMULÁRIO DE VISITA
+  // ═══════════════════════════════════════════════════════════
+
+  function openNewVisit() {
+    document.getElementById('modal-visit-title').textContent = 'Nova Visita';
+    document.getElementById('v-client').value   = '';
+    document.getElementById('v-property').value = '';
+    document.getElementById('v-start').value    = '';
+    document.getElementById('v-end').value      = '';
+    document.getElementById('v-edit-id').value  = '';
+    clearVisitErrors();
+    populateAgentSelect('v-agent', '');
+    openModal('modal-visit');
+  }
+
+  function openEditVisit(id) {
+    const v = state.visits.find(x => x.id === id);
+    if (!v) return;
+    document.getElementById('modal-visit-title').textContent = 'Editar Visita';
+    document.getElementById('v-client').value   = v.client;
+    document.getElementById('v-property').value = v.property;
+    document.getElementById('v-start').value    = v.start;
+    document.getElementById('v-end').value      = v.end;
+    document.getElementById('v-edit-id').value  = v.id;
+    clearVisitErrors();
+    populateAgentSelect('v-agent', v.manualAgent || '');
+    openModal('modal-visit');
+  }
+
+  function populateAgentSelect(selectId, selectedValue) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Atribuir automaticamente</option>' +
+      state.agents.map(a =>
+        `<option value="${a.id}" ${a.id === selectedValue ? 'selected' : ''}>${esc(a.name)}</option>`
+      ).join('');
+  }
+
+  function clearVisitErrors() {
+    ['err-v-client','err-v-property','err-v-start','err-v-end','err-v-time']
+      .forEach(id => document.getElementById(id).classList.remove('show'));
+  }
+
+  function saveVisit() {
+    clearVisitErrors();
+    const client   = document.getElementById('v-client').value.trim();
+    const property = document.getElementById('v-property').value.trim();
+    const start    = document.getElementById('v-start').value;
+    const end      = document.getElementById('v-end').value;
+    const agentId  = document.getElementById('v-agent').value;
+    const editId   = document.getElementById('v-edit-id').value;
+
+    let ok = true;
+    if (!client)   { document.getElementById('err-v-client').classList.add('show');   ok = false; }
+    if (!property) { document.getElementById('err-v-property').classList.add('show'); ok = false; }
+    if (!start)    { document.getElementById('err-v-start').classList.add('show');    ok = false; }
+    if (!end)      { document.getElementById('err-v-end').classList.add('show');      ok = false; }
+    if (!ok) return;
+
+    if (toMin(end) <= toMin(start)) {
+      document.getElementById('err-v-time').classList.add('show');
+      return;
+    }
+
+    if (editId) {
+      const v = state.visits.find(x => x.id === editId);
+      if (v) {
+        v.client      = client;
+        v.property    = property;
+        v.start       = start;
+        v.end         = end;
+        v.manualAgent = agentId || null;
+        v.example     = false;
+      }
+      toast('Visita atualizada.', 'success');
+    } else {
+      state.visits.push({ id: uid(), client, property, start, end, manualAgent: agentId || null, example: false });
+      toast('Visita adicionada.', 'success');
+    }
+
+    saveState();
+    render();
+    closeModal('modal-visit');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FORMULÁRIO DE CORRETOR
+  // ═══════════════════════════════════════════════════════════
+
+  function openNewAgent() {
+    document.getElementById('modal-agent-title').textContent = 'Novo Corretor';
+    document.getElementById('a-name').value  = '';
+    document.getElementById('a-start').value = '';
+    document.getElementById('a-end').value   = '';
+    document.getElementById('a-edit-id').value = '';
+    document.getElementById('err-a-name').classList.remove('show');
+    openModal('modal-agent');
+  }
+
+  function openEditAgent(id) {
+    const a = state.agents.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('modal-agent-title').textContent = 'Editar Corretor';
+    document.getElementById('a-name').value    = a.name;
+    document.getElementById('a-start').value   = a.startTime || '';
+    document.getElementById('a-end').value     = a.endTime   || '';
+    document.getElementById('a-edit-id').value = a.id;
+    document.getElementById('err-a-name').classList.remove('show');
+    openModal('modal-agent');
+  }
+
+  function saveAgent() {
+    document.getElementById('err-a-name').classList.remove('show');
+    const name    = document.getElementById('a-name').value.trim();
+    const start   = document.getElementById('a-start').value;
+    const end     = document.getElementById('a-end').value;
+    const editId  = document.getElementById('a-edit-id').value;
+
+    if (!name) { document.getElementById('err-a-name').classList.add('show'); return; }
+
+    if (editId) {
+      const a = state.agents.find(x => x.id === editId);
+      if (a) { a.name = name; a.startTime = start; a.endTime = end; a.example = false; }
+      toast('Corretor atualizado.', 'success');
+    } else {
+      state.agents.push({ id: uid(), name, startTime: start, endTime: end, example: false });
+      toast('Corretor adicionado.', 'success');
+    }
+
+    saveState();
+    render();
+    closeModal('modal-agent');
+  }
+
+  // ── stub para mover visita (commit 6) ─────────────────────
   function confirmMove() { closeModal('modal-move'); }
-  function openEditVisit(id) { toast('Edição disponível em breve.'); }
-  function openEditAgent(id) { toast('Edição disponível em breve.'); }
 
   // ── tempo de deslocamento: salva ao mudar ─────────────────
   document.getElementById('travel-time').addEventListener('change', e => {
