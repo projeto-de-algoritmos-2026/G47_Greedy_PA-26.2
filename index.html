@@ -787,6 +787,196 @@
 
 <!-- ══════════════════════ SCRIPT ══════════════════════════ -->
 <script>
+  // ═══════════════════════════════════════════════════════════
+  // MODELO DE DADOS
+  // ═══════════════════════════════════════════════════════════
+
+  const STORAGE_KEY = 'agenda-visitas-v1';
+
+  // Dados de exemplo exibidos na primeira abertura
+  const EXAMPLE_DATA = {
+    travelTime: 20,
+    agents: [
+      { id: 'ag1', name: 'Carlos Silva',  startTime: '08:00', endTime: '18:00', example: true },
+      { id: 'ag2', name: 'Ana Souza',     startTime: '09:00', endTime: '17:00', example: true },
+      { id: 'ag3', name: 'Pedro Alves',   startTime: '',      endTime: '',      example: true },
+    ],
+    visits: [
+      { id: 'v1', client: 'João Lima',      property: 'Rua das Flores, 42',   start: '09:00', end: '09:45', manualAgent: null, example: true },
+      { id: 'v2', client: 'Maria Costa',    property: 'AP-301 — Torre Norte', start: '09:30', end: '10:15', manualAgent: null, example: true },
+      { id: 'v3', client: 'Roberto Faria',  property: 'Casa 7 — Cond. Verde',  start: '10:00', end: '11:00', manualAgent: null, example: true },
+      { id: 'v4', client: 'Fernanda Neto',  property: 'Rua das Flores, 42',   start: '11:00', end: '11:45', manualAgent: null, example: true },
+      { id: 'v5', client: 'Lucas Pinto',    property: 'AP-204 — Ed. Central',  start: '14:00', end: '14:30', manualAgent: null, example: true },
+      { id: 'v6', client: 'Beatriz Melo',   property: 'AP-301 — Torre Norte', start: '14:00', end: '15:00', manualAgent: null, example: true },
+      { id: 'v7', client: 'Cláudio Rocha',  property: 'Casa 12 — Cond. Verde', start: '15:30', end: '16:15', manualAgent: null, example: true },
+      { id: 'v8', client: 'Patrícia Duarte', property: 'Rua Ipê, 88',          start: '16:00', end: '17:00', manualAgent: null, example: true },
+      { id: 'v9', client: 'Marcos Vieira',  property: 'AP-110 — Res. Parque',  start: '16:30', end: '17:15', manualAgent: null, example: true },
+    ],
+  };
+
+  // Estado global
+  let state = { travelTime: 20, agents: [], visits: [] };
+
+  // ── persistência ─────────────────────────────────────────
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function loadState() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try { state = JSON.parse(raw); return; } catch (_) {}
+    }
+    // primeira abertura: carrega dados de exemplo
+    state = JSON.parse(JSON.stringify(EXAMPLE_DATA));
+    saveState();
+  }
+
+  // ── gerador de IDs ───────────────────────────────────────
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  // ── helpers de tempo ─────────────────────────────────────
+  // Converte "HH:MM" em minutos desde meia-noite
+  function toMin(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  // Converte minutos em "HH:MM"
+  function fromMin(min) {
+    const h = Math.floor(min / 60) % 24;
+    const m = min % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDERIZAÇÃO
+  // ═══════════════════════════════════════════════════════════
+
+  function render() {
+    renderTravelTime();
+    renderSummary();
+    renderAllVisits();
+    renderAgentList();
+  }
+
+  // ── tempo de deslocamento ────────────────────────────────
+  function renderTravelTime() {
+    document.getElementById('travel-time').value = state.travelTime;
+  }
+
+  // ── resumo (placeholder; algoritmos vêm no commit 4) ─────
+  function renderSummary() {
+    const total = state.visits.length;
+    const nAgents = state.agents.length;
+    const txt = document.getElementById('summary-text');
+    const badges = document.getElementById('summary-badges');
+
+    if (total === 0) {
+      txt.textContent = 'Adicione visitas e corretores para ver o resumo do dia.';
+      badges.innerHTML = '';
+      return;
+    }
+
+    txt.textContent = `${total} visita${total !== 1 ? 's' : ''} cadastrada${total !== 1 ? 's' : ''} • ${nAgents} corretor${nAgents !== 1 ? 'es' : ''} disponível${nAgents !== 1 ? 'is' : ''}`;
+
+    const exCount = state.visits.filter(v => v.example).length;
+    badges.innerHTML = (exCount > 0
+      ? `<span class="badge badge-example">&#x1F4CB; ${exCount} exemplo${exCount !== 1 ? 's' : ''}</span>`
+      : '') +
+      `<span class="badge badge-info">&#x23F1;&#xFE0F; Deslocamento: ${state.travelTime} min</span>`;
+  }
+
+  // ── lista "Todas as visitas" ──────────────────────────────
+  function renderAllVisits() {
+    const el = document.getElementById('all-visits-list');
+    if (state.visits.length === 0) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F3E0;</div><p>Nenhuma visita cadastrada.</p></div>';
+      return;
+    }
+
+    const sorted = [...state.visits].sort((a, b) => toMin(a.start) - toMin(b.start));
+    el.innerHTML = sorted.map(v => `
+      <div class="visit-row">
+        <div class="vr-time">${v.start} – ${v.end}</div>
+        <div class="vr-info">
+          <div class="vr-client">${esc(v.client)}${v.example ? ' <span class="badge badge-example" style="font-size:0.7rem;padding:1px 6px;">exemplo</span>' : ''}</div>
+          <div class="vr-property">&#x1F3E0; ${esc(v.property)}</div>
+        </div>
+        <div class="vr-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openEditVisit('${v.id}')" title="Editar">&#x270F;&#xFE0F;</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVisit('${v.id}')" title="Apagar">&#x1F5D1;&#xFE0F;</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── lista de corretores (aba Corretores) ──────────────────
+  function renderAgentList() {
+    const el = document.getElementById('agent-list');
+    if (state.agents.length === 0) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F464;</div><p>Nenhum corretor cadastrado.</p></div>';
+      return;
+    }
+
+    el.innerHTML = state.agents.map(a => {
+      const hours = (a.startTime && a.endTime) ? `${a.startTime} – ${a.endTime}` : 'Horário livre';
+      return `
+        <div class="agent-row">
+          <div class="ar-name">${esc(a.name)}${a.example ? ' <span class="badge badge-example" style="font-size:0.7rem;padding:1px 6px;">exemplo</span>' : ''}</div>
+          <div class="ar-hours">&#x23F0; ${hours}</div>
+          <div class="ar-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openEditAgent('${a.id}')" title="Editar">&#x270F;&#xFE0F;</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteAgent('${a.id}')" title="Apagar">&#x1F5D1;&#xFE0F;</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── escape HTML básico ───────────────────────────────────
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // AÇÕES DE DADOS
+  // ═══════════════════════════════════════════════════════════
+
+  function deleteVisit(id) {
+    if (!confirm('Apagar esta visita?')) return;
+    state.visits = state.visits.filter(v => v.id !== id);
+    saveState();
+    render();
+    toast('Visita apagada.', 'success');
+  }
+
+  function deleteAgent(id) {
+    if (!confirm('Apagar este corretor?')) return;
+    state.agents = state.agents.filter(a => a.id !== id);
+    // remove atribuições manuais desse corretor
+    state.visits.forEach(v => { if (v.manualAgent === id) v.manualAgent = null; });
+    saveState();
+    render();
+    toast('Corretor apagado.', 'success');
+  }
+
+  function confirmClearAll() {
+    if (!confirm('Limpar tudo e apagar todos os dados? Esta ação não pode ser desfeita.')) return;
+    state = { travelTime: 20, agents: [], visits: [] };
+    saveState();
+    render();
+    toast('Todos os dados foram apagados.', 'warning');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // UI: MODAIS, ABAS, TOAST
+  // ═══════════════════════════════════════════════════════════
+
   // ── date header ──────────────────────────────────────────
   document.getElementById('date-display').textContent =
     new Date().toLocaleDateString('pt-BR', {
@@ -820,11 +1010,26 @@
     setTimeout(() => el.remove(), 3200);
   }
 
-  // ── stubs (logic added in next commits) ──────────────────
-  function saveVisit()    { closeModal('modal-visit'); }
-  function saveAgent()    { closeModal('modal-agent'); }
-  function confirmMove()  { closeModal('modal-move'); }
-  function confirmClearAll() { toast('Função disponível em breve.', 'warning'); }
+  // ── stubs (formulários e algoritmos vêm nos próximos commits) ──
+  function saveVisit()   { closeModal('modal-visit'); }
+  function saveAgent()   { closeModal('modal-agent'); }
+  function confirmMove() { closeModal('modal-move'); }
+  function openEditVisit(id) { toast('Edição disponível em breve.'); }
+  function openEditAgent(id) { toast('Edição disponível em breve.'); }
+
+  // ── tempo de deslocamento: salva ao mudar ─────────────────
+  document.getElementById('travel-time').addEventListener('change', e => {
+    const v = parseInt(e.target.value, 10);
+    if (!isNaN(v) && v >= 0) {
+      state.travelTime = v;
+      saveState();
+      render();
+    }
+  });
+
+  // ── inicialização ─────────────────────────────────────────
+  loadState();
+  render();
 </script>
 
 </body>
