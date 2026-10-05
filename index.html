@@ -576,6 +576,77 @@
     .empty .empty-icon { font-size: 2.2rem; margin-bottom: 7px; }
     .empty p { font-size: 0.86rem; }
 
+    /* ── Interval Scheduling card ───────────────────────── */
+    .is-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .is-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--radius);
+      background: #f3e8ff;
+      border: 1.5px solid #9b59b6;
+    }
+
+    .is-step {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #9b59b6;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .is-info { flex: 1; min-width: 0; }
+    .is-info .is-client   { font-weight: 600; font-size: 0.88rem; color: #4a235a; }
+    .is-info .is-property { font-size: 0.78rem; color: #6b21a8; opacity: 0.8; }
+
+    .is-time {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #6b21a8;
+      background: #e9d5ff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .is-arrow {
+      text-align: center;
+      font-size: 1rem;
+      color: #9b59b6;
+      line-height: 1;
+    }
+
+    .is-skipped {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .is-skipped-chip {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.76rem;
+      text-decoration: line-through;
+      opacity: 0.8;
+    }
+
     /* ── Responsive ──────────────────────────────────────── */
     @media (max-width: 420px) {
       .btn  { font-size: 0.8rem; padding: 7px 11px; }
@@ -675,6 +746,22 @@
       <span class="card-title">&#x274C; Visitas que não couberam hoje</span>
     </div>
     <div class="unfit-list" id="unfit-list"></div>
+  </div>
+
+  <!-- Interval Scheduling -->
+  <div class="card" id="scheduling-card" style="display:none; border-left:4px solid #9b59b6;">
+    <div class="card-header">
+      <span class="card-title">&#x1F4C8; Interval Scheduling — máximo para 1 corretor</span>
+      <span class="badge" id="scheduling-badge" style="background:#f3e8ff;color:#6b21a8;"></span>
+    </div>
+    <p style="font-size:0.82rem;color:var(--gray-600);margin-bottom:12px;">
+      Seleção greedy das visitas compatíveis que um único corretor consegue atender (ordenadas por fim mais cedo).
+    </p>
+    <div class="is-timeline" id="scheduling-timeline"></div>
+    <div class="is-skipped-label" id="scheduling-skipped-label" style="display:none;margin-top:10px;font-size:0.8rem;color:var(--gray-600);">
+      Visitas descartadas (conflito com a seleção):
+    </div>
+    <div class="is-skipped" id="scheduling-skipped"></div>
   </div>
 
 </main>
@@ -815,7 +902,8 @@
   };
 
   // Estado global
-  let state = { travelTime: 20, agents: [], visits: [] };
+  let state    = { travelTime: 20, agents: [], visits: [] };
+  let schedule = null; // resultado dos algoritmos, recalculado a cada render()
 
   // ── persistência ─────────────────────────────────────────
   function saveState() {
@@ -852,12 +940,39 @@
   }
 
   // ═══════════════════════════════════════════════════════════
+  // API
+  // ═══════════════════════════════════════════════════════════
+
+  async function fetchSchedule() {
+    try {
+      const res = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visits: state.visits,
+          agents: state.agents,
+          travelTime: state.travelTime,
+        }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (e) {
+      toast('Erro ao calcular agenda: ' + e.message, 'error');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // RENDERIZAÇÃO
   // ═══════════════════════════════════════════════════════════
 
-  function render() {
+  async function render() {
+    schedule = await fetchSchedule();
+    if (!schedule) return;
     renderTravelTime();
     renderSummary();
+    renderConflicts();
+    renderScheduling();
     renderAllVisits();
     renderAgentList();
   }
@@ -867,26 +982,135 @@
     document.getElementById('travel-time').value = state.travelTime;
   }
 
-  // ── resumo (placeholder; algoritmos vêm no commit 4) ─────
+  // ── resumo ────────────────────────────────────────────────
   function renderSummary() {
-    const total = state.visits.length;
-    const nAgents = state.agents.length;
-    const txt = document.getElementById('summary-text');
+    const txt    = document.getElementById('summary-text');
     const badges = document.getElementById('summary-badges');
+    const s      = schedule;
+    const total  = state.visits.length;
 
-    if (total === 0) {
-      txt.textContent = 'Adicione visitas e corretores para ver o resumo do dia.';
+    if (s.mode === 'empty') {
+      txt.textContent  = 'Adicione visitas e corretores para ver o resumo do dia.';
       badges.innerHTML = '';
+      document.getElementById('summary-banner').style.borderLeftColor = 'var(--primary)';
       return;
     }
 
-    txt.textContent = `${total} visita${total !== 1 ? 's' : ''} cadastrada${total !== 1 ? 's' : ''} • ${nAgents} corretor${nAgents !== 1 ? 'es' : ''} disponível${nAgents !== 1 ? 'is' : ''}`;
+    if (s.mode === 'virtual') {
+      txt.textContent = `Hoje você precisa de ${s.minAgents} corretor${s.minAgents !== 1 ? 'es' : ''} para cobrir ${total} visita${total !== 1 ? 's' : ''}.`;
+      document.getElementById('summary-banner').style.borderLeftColor = 'var(--primary)';
+    } else if (s.mode === 'sufficient') {
+      txt.textContent = `Ótimo! Seus ${s.k} corretor${s.k !== 1 ? 'es cobrem' : ' cobre'} todas as ${total} visitas do dia.`;
+      document.getElementById('summary-banner').style.borderLeftColor = 'var(--success)';
+    } else {
+      // need_more: partitioning mostra o mínimo necessário
+      txt.textContent = `Você tem ${s.k} corretor${s.k !== 1 ? 'es' : ''}, mas precisa de ${s.minAgents} para cobrir todas as ${total} visitas.`;
+      document.getElementById('summary-banner').style.borderLeftColor = 'var(--warning)';
+    }
 
     const exCount = state.visits.filter(v => v.example).length;
-    badges.innerHTML = (exCount > 0
-      ? `<span class="badge badge-example">&#x1F4CB; ${exCount} exemplo${exCount !== 1 ? 's' : ''}</span>`
-      : '') +
-      `<span class="badge badge-info">&#x23F1;&#xFE0F; Deslocamento: ${state.travelTime} min</span>`;
+    const parts = [
+      s.mode !== 'virtual'
+        ? `<span class="badge badge-info">&#x1F464; ${s.k} corretor${s.k !== 1 ? 'es' : ''} disponível${s.k !== 1 ? 'is' : ''}</span>`
+        : `<span class="badge badge-warning">&#x26A0;&#xFE0F; Mínimo necessário: ${s.minAgents}</span>`,
+      `<span class="badge badge-info">&#x1F3E0; ${total} visita${total !== 1 ? 's' : ''}</span>`,
+      `<span class="badge badge-info">&#x1F697; Deslocamento: ${state.travelTime} min</span>`,
+      s.conflicts.length > 0
+        ? `<span class="badge badge-warning">&#x26A0;&#xFE0F; ${s.conflicts.length} conflito${s.conflicts.length !== 1 ? 's' : ''} de imóvel</span>`
+        : '',
+      exCount > 0
+        ? `<span class="badge badge-example">&#x1F4CB; ${exCount} exemplo${exCount !== 1 ? 's' : ''}</span>`
+        : '',
+    ];
+    badges.innerHTML = parts.join('');
+  }
+
+  // ── conflitos de imóvel ───────────────────────────────────
+  function renderConflicts() {
+    const card = document.getElementById('conflicts-card');
+    const list = document.getElementById('conflict-list');
+    const cs   = schedule.conflicts;
+
+    if (cs.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    list.innerHTML = cs.map(c => `
+      <div class="conflict-item">
+        <div class="conflict-title">&#x1F3E0; ${esc(c.property)}</div>
+        <div>${esc(c.v1.client)} (${c.v1.start}–${c.v1.end}) e
+             ${esc(c.v2.client)} (${c.v2.start}–${c.v2.end}) visitam o mesmo imóvel ao mesmo tempo.</div>
+      </div>`).join('');
+  }
+
+  // ── interval scheduling ──────────────────────────────────
+  function renderScheduling() {
+    const card    = document.getElementById('scheduling-card');
+    const timeline = document.getElementById('scheduling-timeline');
+    const badge   = document.getElementById('scheduling-badge');
+    const skippedLabel = document.getElementById('scheduling-skipped-label');
+    const skippedEl = document.getElementById('scheduling-skipped');
+
+    if (!schedule || !schedule.maxSingleAgent || state.visits.length === 0) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = '';
+
+    const selectedIds = new Set(schedule.maxSingleAgent);
+    const selected = schedule.maxSingleAgent
+      .map(id => state.visits.find(v => v.id === id))
+      .filter(Boolean);
+    const skipped  = state.visits.filter(v => !selectedIds.has(v.id));
+
+    badge.textContent = `${selected.length} de ${state.visits.length} visita${state.visits.length !== 1 ? 's' : ''}`;
+
+    if (selected.length === 0) {
+      timeline.innerHTML = '<div class="empty"><p>Nenhuma visita selecionável.</p></div>';
+    } else {
+      timeline.innerHTML = selected.map((v, i) => `
+        ${i > 0 ? '<div class="is-arrow">&#x2193;</div>' : ''}
+        <div class="is-item">
+          <div class="is-step">${i + 1}</div>
+          <div class="is-info">
+            <div class="is-client">${esc(v.client)}</div>
+            <div class="is-property">&#x1F3E0; ${esc(v.property)}</div>
+          </div>
+          <div class="is-time">${v.start} – ${v.end}</div>
+        </div>`).join('');
+    }
+
+    if (skipped.length > 0) {
+      skippedLabel.style.display = '';
+      skippedEl.innerHTML = skipped.map(v =>
+        `<span class="is-skipped-chip">${esc(v.client)} (${v.start}–${v.end})</span>`
+      ).join('');
+    } else {
+      skippedLabel.style.display = 'none';
+      skippedEl.innerHTML = '';
+    }
+  }
+
+  // ── visitas que não couberam ──────────────────────────────
+  function renderUnfit() {
+    const card = document.getElementById('unfit-card');
+    const list = document.getElementById('unfit-list');
+    const uf   = schedule.unfit;
+
+    if (uf.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    list.innerHTML = uf.map(v => `
+      <div class="unfit-item">
+        <div class="unfit-icon">&#x274C;</div>
+        <div class="unfit-info">
+          <div class="unfit-label">${esc(v.client)} — ${esc(v.property)}</div>
+          <div class="unfit-suggestion">&#x23F0; ${v.start}–${v.end} &nbsp;|&nbsp; Sugestão: remarcar esta visita ou adicionar mais um corretor.</div>
+        </div>
+        <div>
+          <button class="btn btn-ghost btn-sm" onclick="openEditVisit('${v.id}')">Reagendar</button>
+        </div>
+      </div>`).join('');
   }
 
   // ── lista "Todas as visitas" ──────────────────────────────
@@ -947,30 +1171,29 @@
   // AÇÕES DE DADOS
   // ═══════════════════════════════════════════════════════════
 
-  function deleteVisit(id) {
+  async function deleteVisit(id) {
     if (!confirm('Apagar esta visita?')) return;
     state.visits = state.visits.filter(v => v.id !== id);
     saveState();
-    render();
     toast('Visita apagada.', 'success');
+    render();
   }
 
-  function deleteAgent(id) {
+  async function deleteAgent(id) {
     if (!confirm('Apagar este corretor?')) return;
     state.agents = state.agents.filter(a => a.id !== id);
-    // remove atribuições manuais desse corretor
     state.visits.forEach(v => { if (v.manualAgent === id) v.manualAgent = null; });
     saveState();
-    render();
     toast('Corretor apagado.', 'success');
+    render();
   }
 
-  function confirmClearAll() {
+  async function confirmClearAll() {
     if (!confirm('Limpar tudo e apagar todos os dados? Esta ação não pode ser desfeita.')) return;
     state = { travelTime: 20, agents: [], visits: [] };
     saveState();
-    render();
     toast('Todos os dados foram apagados.', 'warning');
+    render();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1053,7 +1276,7 @@
       .forEach(id => document.getElementById(id).classList.remove('show'));
   }
 
-  function saveVisit() {
+  async function saveVisit() {
     clearVisitErrors();
     const client   = document.getElementById('v-client').value.trim();
     const property = document.getElementById('v-property').value.trim();
@@ -1121,7 +1344,7 @@
     openModal('modal-agent');
   }
 
-  function saveAgent() {
+  async function saveAgent() {
     document.getElementById('err-a-name').classList.remove('show');
     const name    = document.getElementById('a-name').value.trim();
     const start   = document.getElementById('a-start').value;
@@ -1148,7 +1371,7 @@
   function confirmMove() { closeModal('modal-move'); }
 
   // ── tempo de deslocamento: salva ao mudar ─────────────────
-  document.getElementById('travel-time').addEventListener('change', e => {
+  document.getElementById('travel-time').addEventListener('change', async e => {
     const v = parseInt(e.target.value, 10);
     if (!isNaN(v) && v >= 0) {
       state.travelTime = v;
