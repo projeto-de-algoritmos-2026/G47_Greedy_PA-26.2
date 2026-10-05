@@ -132,6 +132,15 @@ def build_agent_slots(agents: list[Agent], visits: list[Visit], assign: dict[str
     return slots
 
 
+def per_agent_scheduling(agent_slots: list[dict]) -> dict[str, list[str]]:
+    """Run interval scheduling on each agent's assigned visits."""
+    result = {}
+    for slot in agent_slots:
+        visits = [Visit(**v) for v in slot["visits"]]
+        result[slot["id"]] = interval_scheduling(visits)
+    return result
+
+
 # ── Routes ──────────────────────────────────────────────────
 
 @app.get("/")
@@ -179,6 +188,7 @@ def compute_schedule(req: ScheduleRequest):
             "conflicts": conflicts,
             "assign": assign,
             "maxSingleAgent": max_single_agent,
+            "perAgentScheduling": per_agent_scheduling(agent_slots),
         }
 
     agent_slots = build_agent_slots(agents, visits, assign)
@@ -194,4 +204,5 @@ def compute_schedule(req: ScheduleRequest):
         "conflicts": conflicts,
         "assign": assign,
         "maxSingleAgent": max_single_agent,
+        "perAgentScheduling": per_agent_scheduling(agent_slots),
     }

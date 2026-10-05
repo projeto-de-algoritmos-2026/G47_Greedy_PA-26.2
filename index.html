@@ -576,6 +576,75 @@
     .empty .empty-icon { font-size: 2.2rem; margin-bottom: 7px; }
     .empty p { font-size: 0.86rem; }
 
+    /* ── Agendas tab ─────────────────────────────────────── */
+    .agenda-agent-card {
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .agenda-agent-header {
+      background: var(--gray-100);
+      padding: 10px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .agenda-agent-name { font-weight: 600; font-size: 0.92rem; }
+
+    .agenda-visit {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border-top: 1px solid var(--gray-200);
+      transition: background 0.15s;
+    }
+
+    .agenda-visit.optimal {
+      background: #f3e8ff;
+      border-left: 3px solid #9b59b6;
+    }
+
+    .agenda-visit.skipped {
+      background: #fff5f5;
+      border-left: 3px solid var(--danger);
+      opacity: 0.6;
+    }
+
+    .agenda-visit-time {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .agenda-visit.optimal .agenda-visit-time {
+      background: #e9d5ff;
+      color: #6b21a8;
+    }
+
+    .agenda-visit-info { flex: 1; min-width: 0; }
+    .agenda-visit-client   { font-size: 0.88rem; font-weight: 500; }
+    .agenda-visit-property { font-size: 0.78rem; color: var(--gray-600); }
+
+    .agenda-visit-tag {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    .tag-optimal  { background: #e9d5ff; color: #6b21a8; }
+    .tag-conflict { background: #fde8e8; color: var(--danger); }
+
     /* ── Interval Scheduling card ───────────────────────── */
     .is-timeline {
       display: flex;
@@ -972,6 +1041,7 @@
     renderTravelTime();
     renderSummary();
     renderConflicts();
+    renderAgendas();
     renderScheduling();
     renderAllVisits();
     renderAgentList();
@@ -1040,6 +1110,49 @@
         <div>${esc(c.v1.client)} (${c.v1.start}–${c.v1.end}) e
              ${esc(c.v2.client)} (${c.v2.start}–${c.v2.end}) visitam o mesmo imóvel ao mesmo tempo.</div>
       </div>`).join('');
+  }
+
+  // ── agendas por corretor ─────────────────────────────────
+  function renderAgendas() {
+    const el = document.getElementById('agenda-list');
+    if (!schedule || schedule.agentSlots.length === 0) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F464;</div><p>Nenhum corretor disponível.</p></div>';
+      return;
+    }
+
+    const perAgent = schedule.perAgentScheduling || {};
+
+    el.innerHTML = schedule.agentSlots.map(slot => {
+      const optimal = new Set(perAgent[slot.id] || []);
+      const sorted  = [...slot.visits].sort((a, b) => toMin(a.start) - toMin(b.start));
+      const optCount = sorted.filter(v => optimal.has(v.id)).length;
+
+      if (sorted.length === 0) return '';
+
+      const rows = sorted.map(v => {
+        const isOptimal = optimal.has(v.id);
+        return `
+          <div class="agenda-visit ${isOptimal ? 'optimal' : 'skipped'}">
+            <div class="agenda-visit-time">${v.start} – ${v.end}</div>
+            <div class="agenda-visit-info">
+              <div class="agenda-visit-client">${esc(v.client)}</div>
+              <div class="agenda-visit-property">&#x1F3E0; ${esc(v.property)}</div>
+            </div>
+            <span class="agenda-visit-tag ${isOptimal ? 'tag-optimal' : 'tag-conflict'}">
+              ${isOptimal ? '&#x2713; ótimo' : '&#x26A0; conflito'}
+            </span>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="agenda-agent-card">
+          <div class="agenda-agent-header">
+            <span class="agenda-agent-name">&#x1F464; ${esc(slot.name)}</span>
+            <span class="badge badge-info">${sorted.length} visita${sorted.length !== 1 ? 's' : ''} — ${optCount} ótima${optCount !== 1 ? 's' : ''}</span>
+          </div>
+          ${rows}
+        </div>`;
+    }).join('');
   }
 
   // ── interval scheduling ──────────────────────────────────
